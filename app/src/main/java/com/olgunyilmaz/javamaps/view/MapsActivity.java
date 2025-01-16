@@ -12,6 +12,7 @@ import androidx.room.Room;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -34,6 +35,10 @@ import com.olgunyilmaz.javamaps.model.Place;
 import com.olgunyilmaz.javamaps.roomdb.PlaceDao;
 import com.olgunyilmaz.javamaps.roomdb.PlaceDatabase;
 
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
+
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
 
     private GoogleMap mMap;
@@ -48,6 +53,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     Double selectedLatitude = 0.0;
     Double selectedLongitude = 0.0;
+    private CompositeDisposable compositeDisposable;
 
 
     @Override
@@ -67,7 +73,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         registerLauncher();
 
-        db = Room.databaseBuilder(getApplicationContext(),PlaceDatabase.class,"Places").build();
+        db = Room.databaseBuilder(getApplicationContext(),PlaceDatabase.class,"Places")
+                //.allowMainThreadQueries() //-> not recommended
+                .build();
+
         placeDao = db.placeDao();
 
     }
@@ -186,11 +195,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
     public void save(View view){
         Place place = new Place(binding.placeText.getText().toString(),selectedLatitude,selectedLongitude);
-        placeDao.insert(place);
 
+        //threading -> MAIN (UI), Default (CPU Intensive), IO (network,database)
+
+
+        //placeDao.insert(place).subscribeOn(Schedulers.io()).subscribe();
+
+        //disposable
+        compositeDisposable.add(placeDao.insert(place)
+                .subscribeOn(Schedulers.io()) // do it on backend
+                .observeOn(AndroidSchedulers.mainThread()) // show on mainThread
+                .subscribe(MapsActivity.this :: handleResponse)); //call handleResponse when finished
+
+    }
+
+    private void handleResponse(){ // go back to main
+        Intent intent = new Intent(MapsActivity.this,MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);
     }
     public void delete(View view){
+        /*
+        compositeDisposable.add(placeDao.delete().subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(MapsActivity.this :: handleResponse));
+
+         */
 
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        compositeDisposable.clear(); // like bin
+    }
 }
