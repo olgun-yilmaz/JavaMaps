@@ -57,7 +57,6 @@ public class MainActivity extends AppCompatActivity {
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
         PlaceAdapter placeAdapter = new PlaceAdapter(placeList);
         binding.recyclerView.setAdapter(placeAdapter);
-        //Added functionality to display saved locations with PlaceAdapter
 
     }
 
@@ -72,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         if (item.getItemId() == R.id.add_place){
             Intent intent = new Intent(MainActivity.this, MapsActivity.class);
+            intent.putExtra("from","main");
             startActivity(intent);
         }
         return super.onOptionsItemSelected(item);

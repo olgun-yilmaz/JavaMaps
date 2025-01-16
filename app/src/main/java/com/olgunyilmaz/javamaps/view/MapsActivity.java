@@ -50,6 +50,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     boolean isFirstTime;
     PlaceDatabase db;
     PlaceDao placeDao;
+    Place selectedPlace;
 
     Double selectedLatitude = 0.0;
     Double selectedLongitude = 0.0;
@@ -79,64 +80,76 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         placeDao = db.placeDao();
 
+        binding.saveButton.setEnabled(false);
     }
-
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         mMap.setOnMapLongClickListener(MapsActivity.this); //activity implements listener
 
-        binding.saveButton.setEnabled(false);
+        Intent intent = getIntent();
+        String from = intent.getStringExtra("from");
 
-        //casting
-        locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
-        locationListener = new LocationListener() {
-            @Override
-            public void onLocationChanged(@NonNull Location location) {
+        if(from.equals("main")){ // -> new
+            binding.saveButton.setVisibility(View.VISIBLE);
+            binding.deleteButton.setVisibility(View.GONE);
 
-                if (isFirstTime){ // calling just get started.
-                    goToLocation(location.getLatitude(),location.getLongitude(),"current location",15);
-                    sharedPreferences.edit().putBoolean("isFirstTime",false).apply();
+            //casting
+            locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
+            locationListener = new LocationListener() {
+                @Override
+                public void onLocationChanged(@NonNull Location location) {
+
+                    if (isFirstTime){ // calling just get started.
+                        goToLocation(location.getLatitude(),location.getLongitude(),"current location",15);
+                        sharedPreferences.edit().putBoolean("isFirstTime",false).apply();
+                    }
+
                 }
 
+            };
 
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                    PackageManager.PERMISSION_GRANTED){
+                // request permission
+                if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)){
+                    Snackbar.make(binding.getRoot(),"Permission needed for maps",Snackbar.LENGTH_INDEFINITE)
+                            .setAction("Give Permission", new View.OnClickListener() {
+                                @Override
+                                public void onClick(View v) {
+                                    // requests permission
+                                    permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
 
-            }
+                                }
+                            }).show();
 
-        };
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED){
-            // request permission
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)){
-                Snackbar.make(binding.getRoot(),"Permission needed for maps",Snackbar.LENGTH_INDEFINITE)
-                        .setAction("Give Permission", new View.OnClickListener() {
-                            @Override
-                            public void onClick(View v) {
-                                // requests permission
-                                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
-
-                            }
-                        }).show();
+                }else{
+                    // requests permission
+                    permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                }
 
             }else{
-                // requests permission
-                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,10000,
+                        100,locationListener);
+
+                goLastLocation();
+
             }
 
-        }else{
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,10000,
-                    100,locationListener);
+        }else{ // adapter -> old
+            mMap.clear();
 
-            goLastLocation();
+            selectedPlace = (Place) intent.getSerializableExtra("place");
+            goToLocation(selectedPlace.latitude,selectedPlace.longitude,selectedPlace.name,17);
 
-    }
+            binding.placeText.setText(selectedPlace.name);
+            binding.saveButton.setVisibility(View.GONE);
+            binding.deleteButton.setVisibility(View.VISIBLE);
 
+            //goToLocation(40.69888446616988, 36.47947100999238,"Degirmenli Municipality",17);
 
-        //goToLocation(40.69888446616988, 36.47947100999238,"Degirmenli Municipality",17);
-
-
+        }
     }
 
     private void goToLocation(double latitude, double longitude, String title, int zoom){
@@ -215,13 +228,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         startActivity(intent);
     }
     public void delete(View view){
-        /*
-        compositeDisposable.add(placeDao.delete().subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(MapsActivity.this :: handleResponse));
 
-         */
-
+        if (selectedPlace != null){
+            compositeDisposable.add(placeDao.delete(selectedPlace).subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(MapsActivity.this :: handleResponse));
+        }
     }
 
     @Override
