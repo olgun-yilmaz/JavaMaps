@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
 
 import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
@@ -12,23 +13,52 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.room.Room;
+import androidx.room.RoomDatabase;
 
 import com.olgunyilmaz.javamaps.R;
+import com.olgunyilmaz.javamaps.adapter.PlaceAdapter;
+import com.olgunyilmaz.javamaps.databinding.ActivityMainBinding;
+import com.olgunyilmaz.javamaps.model.Place;
+import com.olgunyilmaz.javamaps.roomdb.PlaceDao;
+import com.olgunyilmaz.javamaps.roomdb.PlaceDatabase;
+
+import java.util.List;
+
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.disposables.CompositeDisposable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity {
+    private ActivityMainBinding binding;
+    private CompositeDisposable compositeDisposable = new CompositeDisposable();
+    PlaceDatabase db;
+    PlaceDao placeDao;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_main);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        View view = binding.getRoot();
+        setContentView(view);
 
+        db = Room.databaseBuilder(getApplicationContext(),PlaceDatabase.class,"Places").build();
+        placeDao = db.placeDao();
 
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
+        compositeDisposable.add(placeDao.getAll()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(MainActivity.this :: handleResponse)
+        );
+    }
+
+    private void handleResponse(List<Place> placeList ){
+        binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        PlaceAdapter placeAdapter = new PlaceAdapter(placeList);
+        binding.recyclerView.setAdapter(placeAdapter);
+        //Added functionality to display saved locations with PlaceAdapter
+
     }
 
     @Override
@@ -45,5 +75,11 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        compositeDisposable.clear();
     }
 }
