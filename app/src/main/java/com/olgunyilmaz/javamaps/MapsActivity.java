@@ -29,7 +29,7 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.material.snackbar.Snackbar;
 import com.olgunyilmaz.javamaps.databinding.ActivityMapsBinding;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
 
     private GoogleMap mMap;
     private ActivityMapsBinding binding;
@@ -63,6 +63,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setOnMapLongClickListener(MapsActivity.this); //activity implements listener
 
         //casting
         locationManager = (LocationManager) this.getSystemService(Context.LOCATION_SERVICE);
@@ -156,5 +157,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         mMap.setMyLocationEnabled(true); // check my fine location
+    }
+
+    @Override
+    public void onMapLongClick(@NonNull LatLng latLng) {
+        mMap.clear(); // only one marker is displayed at a time
+        mMap.addMarker(new MarkerOptions().position(latLng));
+
     }
 }
