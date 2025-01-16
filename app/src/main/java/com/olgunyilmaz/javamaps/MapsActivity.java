@@ -9,7 +9,9 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -34,6 +36,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     ActivityResultLauncher <String> permissionLauncher;
     LocationManager locationManager;
     LocationListener locationListener;
+    SharedPreferences sharedPreferences;
+    boolean isFirstTime;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +52,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        sharedPreferences = MapsActivity.this.getSharedPreferences("com.olgunyilmaz.javamaps",MODE_PRIVATE);
+        isFirstTime = sharedPreferences.getBoolean("isFirstTime",true);
 
         registerLauncher();
     }
@@ -60,7 +69,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(@NonNull Location location) {
-                System.out.println("location : "+location.toString());
+
+                if (isFirstTime){ // calling just get started.
+                    goToLocation(location.getLatitude(),location.getLongitude(),"current location",15);
+                    sharedPreferences.edit().putBoolean("isFirstTime",false).apply();
+                }
+
+
+
             }
 
         };
@@ -88,12 +104,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,10000,
                     100,locationListener);
 
-
+            goLastLocation();
 
     }
 
 
-        goToLocation(40.69888446616988, 36.47947100999238,"Degirmenli Municipality",17);
+        //goToLocation(40.69888446616988, 36.47947100999238,"Degirmenli Municipality",17);
 
 
     }
@@ -116,7 +132,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     if(ContextCompat.checkSelfPermission(MapsActivity.this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
                         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,10000, 100,locationListener);
-
+                        goLastLocation();
                     }
 
 
@@ -129,5 +145,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         });
+    }
+
+    @SuppressLint("MissingPermission")
+    private void goLastLocation(){
+        Location lastLocation =  locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
+        if (lastLocation != null){ // default : last location onCreate
+            goToLocation(lastLocation.getLatitude(),lastLocation.getLongitude(),"last location",17);
+        }
+
+        mMap.setMyLocationEnabled(true); // check my fine location
     }
 }
